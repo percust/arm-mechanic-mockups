@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>АРМ механика — Календарь доступности</title>
+<style>
+  body { margin: 0; padding: 0; background: #fff; font-family: 'Segoe UI', Tahoma, Arial, sans-serif; font-size: 12px; color: #000; }
+  .form { background: #ECE9D8; border: 1px solid #888; min-width: 1100px; }
+  .title-bar { background: linear-gradient(to right, #0A246A, #A6CAF0); color: #fff; padding: 4px 8px; font-weight: 500; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+  .toolbar { background: #F5F5F0; border-bottom: 1px solid #B8B8B8; padding: 4px 6px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .btn { background: linear-gradient(to bottom, #FFFFFF, #E1E1E1); border: 1px solid #919B9C; padding: 3px 10px; font-size: 12px; font-family: inherit; cursor: pointer; }
+  .sep { border-left: 1px solid #B8B8B8; height: 18px; margin: 0 4px; }
+  .filters { background: #F5F5F0; border-bottom: 1px solid #B8B8B8; padding: 6px 8px; display: flex; gap: 16px; align-items: center; font-size: 12px; flex-wrap: wrap; }
+  .filters select, .filters input { font-family: inherit; font-size: 12px; padding: 1px 4px; }
+  .grid-wrap { background: #fff; }
+  table { border-collapse: collapse; width: 100%; font-size: 11px; table-layout: fixed; }
+  th, td { padding: 2px; }
+  thead tr { background: #ECE9D8; border-bottom: 1px solid #B8B8B8; }
+  th { font-weight: 500; }
+  .th-sub { font-weight: normal; font-size: 10px; color: #555; }
+  tbody tr { border-bottom: 1px solid #EEE; }
+  tbody tr:nth-child(even) { background: #F8F8F4; }
+  tbody tr:nth-child(odd) { background: #fff; }
+  tbody tr.selected { background: #FFFFE0 !important; }
+  .post-name { padding: 4px 8px; border-right: 1px solid #B8B8B8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .num { padding: 4px; text-align: center; border-right: 1px solid #B8B8B8; }
+  .ktg { padding: 4px; text-align: center; border-right: 1px solid #B8B8B8; }
+  .cell { padding: 2px; border-right: 1px solid #EEE; }
+  .cell-end { padding: 2px; border-right: 1px solid #B8B8B8; }
+  .weekend { background: #F0F0E5; }
+  .event-toir { background: #4A8FE0; color: #fff; padding: 1px 2px; font-size: 9px; text-align: center; }
+  .event-repair { background: #E74C3C; color: #fff; padding: 1px 2px; font-size: 9px; text-align: center; }
+  .overlap .event-toir { height: 13px; line-height: 13px; }
+  .overlap .event-repair { height: 13px; line-height: 13px; margin-top: 1px; }
+  .legend { background: #F5F5F0; border-top: 1px solid #B8B8B8; padding: 4px 8px; display: flex; gap: 14px; align-items: center; font-size: 11px; flex-wrap: wrap; }
+  .legend-chip { display: inline-block; width: 12px; height: 12px; vertical-align: middle; margin-right: 4px; }
+  .detail { background: #ECE9D8; border-top: 1px solid #B8B8B8; padding: 6px 8px; }
+  .detail-title { font-weight: 500; font-size: 11px; margin-bottom: 4px; }
+  .detail-table { font-size: 11px; width: 100%; }
+  .detail-table td { padding: 2px 8px 2px 0; }
+  .detail-label { color: #555; width: 130px; }
+  .detail-actions { margin-top: 6px; display: flex; gap: 6px; }
+  .statusbar { background: #ECE9D8; border-top: 1px solid #B8B8B8; padding: 3px 8px; font-size: 11px; color: #555; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+<div class="form">
+
+<div class="title-bar">
+  <span>1С:ERP — Календарь доступности оборудования (Главное)</span>
+  <span style="font-size: 11px;">_  ☐  ✕</span>
+</div>
+
+<div class="toolbar">
+  <button class="btn">＋ Создать событие</button>
+  <button class="btn">↻ Обновить АСДУ</button>
+  <button class="btn">∑ Пересчитать КТГ</button>
+  <button class="btn">→ Передать в планирование</button>
+  <span class="sep"></span>
+  <button class="btn">⟲ Обновить</button>
+</div>
+
+<div class="filters">
+  <span>Цех: <select><option>Все</option><option>Танкоград</option><option>Нахимова</option></select></span>
+  <span>Вид оборудования: <select><option>Все</option><option>Плазма</option><option>Лентопил</option><option>Сборка</option><option>Сварка</option></select></span>
+  <span>Тип события: <select><option>Все</option><option>Плановое ТОиР</option><option>Внеплановый ремонт</option></select></span>
+  <span>Период: <input type="text" value="01.06.2026" style="width: 80px;"> — <input type="text" value="07.06.2026" style="width: 80px;"></span>
+</div>
+
+<div class="grid-wrap">
+<table>
+  <colgroup>
+    <col style="width: 45px;">
+    <col style="width: 260px;">
+    <col style="width: 50px;">
+    <col span="14" style="width: 45px;">
+  </colgroup>
+  <thead>
+    <tr>
+      <th rowspan="2" style="vertical-align: middle; border-right: 1px solid #B8B8B8;">№</th>
+      <th rowspan="2" style="text-align: left; padding: 4px 8px; vertical-align: middle; border-right: 1px solid #B8B8B8;">Пост</th>
+      <th rowspan="2" style="vertical-align: middle; border-right: 1px solid #B8B8B8;">КТГ</th>
+      <th colspan="2" style="border-right: 1px solid #B8B8B8; border-bottom: 1px solid #B8B8B8;">пн 01.06</th>
+      <th colspan="2" style="border-right: 1px solid #B8B8B8; border-bottom: 1px solid #B8B8B8;">вт 02.06</th>
+      <th colspan="2" style="border-right: 1px solid #B8B8B8; border-bottom: 1px solid #B8B8B8;">ср 03.06</th>
+      <th colspan="2" style="border-right: 1px solid #B8B8B8; border-bottom: 1px solid #B8B8B8;">чт 04.06</th>
+      <th colspan="2" style="border-right: 1px solid #B8B8B8; border-bottom: 1px solid #B8B8B8;">пт 05.06</th>
+      <th colspan="2" class="weekend" style="border-right: 1px solid #B8B8B8; border-bottom: 1px solid #B8B8B8;">сб 06.06</th>
+      <th colspan="2" class="weekend" style="border-bottom: 1px solid #B8B8B8;">вс 07.06</th>
+    </tr>
+    <tr>
+      <th class="th-sub" style="border-right: 1px solid #DDD;">С1</th><th class="th-sub" style="border-right: 1px solid #B8B8B8;">С2</th>
+      <th class="th-sub" style="border-right: 1px solid #DDD;">С1</th><th class="th-sub" style="border-right: 1px solid #B8B8B8;">С2</th>
+      <th class="th-sub" style="border-right: 1px solid #DDD;">С1</th><th class="th-sub" style="border-right: 1px solid #B8B8B8;">С2</th>
+      <th class="th-sub" style="border-right: 1px solid #DDD;">С1</th><th class="th-sub" style="border-right: 1px solid #B8B8B8;">С2</th>
+      <th class="th-sub" style="border-right: 1px solid #DDD;">С1</th><th class="th-sub" style="border-right: 1px solid #B8B8B8;">С2</th>
+      <th class="th-sub weekend" style="border-right: 1px solid #DDD;">С1</th><th class="th-sub weekend" style="border-right: 1px solid #B8B8B8;">С2</th>
+      <th class="th-sub weekend" style="border-right: 1px solid #DDD;">С1</th><th class="th-sub weekend">С2</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="num">1.1</td>
+      <td class="post-name" title="Плазма № 1 (МТР HPR 400 Sheet MURENA)">Плазма № 1 (МТР HPR 400 Sheet MURENA)</td>
+      <td class="ktg">0,92</td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"><div class="event-toir" title="Плановое ТОиР, 1 час">1ч</div></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell weekend"></td><td class="cell-end weekend"></td>
+      <td class="cell weekend"></td><td class="weekend"></td>
+    </tr>
+    <tr>
+      <td class="num">1.4</td>
+      <td class="post-name" title="Лентопил № 1 (КМТ 400×610 KDG-DM)">Лентопил № 1 (КМТ 400×610 KDG-DM)</td>
+      <td class="ktg">0,95</td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"><div class="event-repair" title="Внеплановый ремонт, 6 часов">6ч</div></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell weekend"></td><td class="cell-end weekend"></td>
+      <td class="cell weekend"></td><td class="weekend"></td>
+    </tr>
+    <tr>
+      <td class="num">1.10</td>
+      <td class="post-name" title="Сверлильно-фрезерный комплекс № 1 (FSDH2040 2000×4000)">Сверл.-фрез. комплекс № 1 (FSDH2040)</td>
+      <td class="ktg">0,90</td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"><div class="event-toir">2ч</div></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell weekend"></td><td class="cell-end weekend"></td>
+      <td class="cell weekend"></td><td class="weekend"></td>
+    </tr>
+    <tr class="selected">
+      <td class="num" style="font-weight: 500;">1.17</td>
+      <td class="post-name">Сборка № 1</td>
+      <td class="ktg">0,88</td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"><div class="event-repair" title="Внеплановый ремонт, 4 часа">4ч</div></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell weekend"></td><td class="cell-end weekend"></td>
+      <td class="cell weekend"></td><td class="weekend"></td>
+    </tr>
+    <tr>
+      <td class="num">1.29</td>
+      <td class="post-name">Сварка № 1</td>
+      <td class="ktg">0,93</td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"><div class="event-toir">2ч</div></td><td class="cell-end"><div class="event-toir">2ч</div></td>
+      <td class="cell weekend"></td><td class="cell-end weekend"></td>
+      <td class="cell weekend"></td><td class="weekend"></td>
+    </tr>
+    <tr>
+      <td class="num">2.1</td>
+      <td class="post-name" title="Плазма № 1 (MORAY HYPER 20120 FP 400А)">Плазма № 1 (MORAY HYPER 20120 FP 400А)</td>
+      <td class="ktg">0,85</td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"><div class="event-toir" title="Капитальное ТОиР, 4 смены подряд">8ч</div></td><td class="cell-end"><div class="event-toir">8ч</div></td>
+      <td class="cell"><div class="event-toir">8ч</div></td><td class="cell-end"><div class="event-toir">8ч</div></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell weekend"></td><td class="cell-end weekend"></td>
+      <td class="cell weekend"></td><td class="weekend"></td>
+    </tr>
+    <tr>
+      <td class="num">2.14</td>
+      <td class="post-name">Сборка № 1</td>
+      <td class="ktg" style="color: #555;">0,80 *</td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell overlap">
+        <div class="event-toir" title="Плановое ТОиР">2ч</div>
+        <div class="event-repair" title="Внеплановый ремонт, перекрытие">3ч</div>
+      </td><td class="cell-end"></td>
+      <td class="cell weekend"></td><td class="cell-end weekend"></td>
+      <td class="cell weekend"></td><td class="weekend"></td>
+    </tr>
+    <tr>
+      <td class="num">2.35</td>
+      <td class="post-name" title="Покраска № 1 (WIWA PROFESSIONAL 24071 N/F)">Покраска № 1 (WIWA PROFESSIONAL 24071 N/F)</td>
+      <td class="ktg">0,87</td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"></td><td class="cell-end"></td>
+      <td class="cell"><div class="event-toir">4ч</div></td><td class="cell-end"></td>
+      <td class="cell weekend"></td><td class="cell-end weekend"></td>
+      <td class="cell weekend"></td><td class="weekend"></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="legend">
+  <span><span class="legend-chip" style="background: #4A8FE0;"></span>Плановое ТОиР</span>
+  <span><span class="legend-chip" style="background: #E74C3C;"></span>Внеплановый ремонт</span>
+  <span style="color: #666;">С1 / С2 — смены. * — ручное значение КТГ. В ячейке — длительность события в часах</span>
+</div>
+
+<div class="detail">
+  <div class="detail-title">Детализация выбранного события (1.17 Сборка № 1, 04.06.2026, смена 1)</div>
+  <table class="detail-table">
+    <tr>
+      <td class="detail-label">Пост:</td><td>1.17 Сборка № 1</td>
+      <td class="detail-label" style="padding-left: 16px;">Тип:</td><td>Внеплановый ремонт</td>
+    </tr>
+    <tr>
+      <td class="detail-label">Вид ремонта:</td><td>Текущий ремонт</td>
+      <td></td><td></td>
+    </tr>
+    <tr>
+      <td class="detail-label">Начало:</td><td>04.06.2026 10:00 (смена 1)</td>
+      <td class="detail-label" style="padding-left: 16px;">Плановое окончание:</td><td>04.06.2026 14:00 (смена 1)</td>
+    </tr>
+    <tr>
+      <td class="detail-label" style="vertical-align: top;">Комментарий:</td><td colspan="3">Замена гидроцилиндра прижима</td>
+    </tr>
+  </table>
+  <div class="detail-actions">
+    <button class="btn" style="padding: 3px 14px;">Изменить</button>
+    <button class="btn" style="padding: 3px 14px;">Удалить</button>
+  </div>
+</div>
+
+<div class="statusbar">
+  <span>Отображено постов: 8 из 77 (без постов, состоящих только из людей)</span>
+  <span>Главный механик, kirill.tsybin@percust.com</span>
+</div>
+
+</div>
+</body>
+</html>
